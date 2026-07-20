@@ -7,6 +7,13 @@
     group: ubuntu
     mode: "0755"
 
+- name: Remove stale migration files left from previous deploys
+  ansible.builtin.file:
+    path: "/opt/python-app-01/alembic/versions/{{ item }}"
+    state: absent
+  loop:
+    - 0001_create_todos_table.py
+
 - name: Copy application code
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/../"
