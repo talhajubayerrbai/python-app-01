@@ -46,7 +46,6 @@
     DATABASE_URL: "postgresql+asyncpg://appuser:{{ db_password }}@{{ db_host }}/appdb"
   register: alembic_result
   changed_when: "'Running upgrade' in alembic_result.stdout"
-  no_log: true
 
 - name: Install systemd service
   ansible.builtin.template:
