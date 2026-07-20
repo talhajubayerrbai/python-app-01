@@ -39,7 +39,7 @@ resource "aws_key_pair" "app" {
 # ─── Security Groups ──────────────────────────────────────────────────────────
 resource "aws_security_group" "alb" {
   name        = "${var.project_name}-alb-sg"
-  description = "ALB security group — public HTTP"
+  description = "ALB security group - public HTTP"
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
