@@ -1,0 +1,82 @@
+---
+- name: Create app directory
+  ansible.builtin.file:
+    path: /opt/python-app-01
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: "0755"
+
+- name: Copy application code
+  ansible.builtin.synchronize:
+    src: "{{ playbook_dir }}/../"
+    dest: /opt/python-app-01/
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=.github"
+      - "--exclude=infra"
+      - "--exclude=ansible"
+      - "--exclude=__pycache__"
+      - "--exclude=*.pyc"
+      - "--exclude=.env"
+      - "--exclude=dev.db"
+      - "--exclude=test.db"
+    delete: true
+
+- name: Create Python virtual environment
+  ansible.builtin.command:
+    cmd: python3.12 -m venv /opt/python-app-01/venv
+    creates: /opt/python-app-01/venv/bin/activate
+
+- name: Install Python dependencies
+  ansible.builtin.pip:
+    requirements: /opt/python-app-01/requirements.txt
+    virtualenv: /opt/python-app-01/venv
+    virtualenv_python: python3.12
+  retries: 3
+  delay: 5
+
+- name: Write .env file
+  ansible.builtin.template:
+    src: env.j2
+    dest: /opt/python-app-01/.env
+    owner: ubuntu
+    group: ubuntu
+    mode: "0600"
+  no_log: true
+
+- name: Run Alembic migrations
+  ansible.builtin.command:
+    cmd: /opt/python-app-01/venv/bin/alembic upgrade head
+    chdir: /opt/python-app-01
+  environment:
+    DATABASE_URL: "postgresql+asyncpg://appuser:{{ db_password }}@{{ db_host }}/appdb"
+  register: alembic_result
+  changed_when: "'Running upgrade' in alembic_result.stdout"
+  no_log: true
+
+- name: Install systemd service
+  ansible.builtin.template:
+    src: python-app-01.service.j2
+    dest: /etc/systemd/system/python-app-01.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart app
+
+- name: Enable and start app service
+  ansible.builtin.systemd:
+    name: python-app-01
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for app to be ready
+  ansible.builtin.wait_for:
+    port: 8000
+    host: 127.0.0.1
+    delay: 3
+    timeout: 60

@@ -1,0 +1,18 @@
+[Unit]
+Description=python-app-01 FastAPI application
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/python-app-01
+EnvironmentFile=/opt/python-app-01/.env
+ExecStart=/opt/python-app-01/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=python-app-01
+
+[Install]
+WantedBy=multi-user.target
