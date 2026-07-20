@@ -1,93 +1,76 @@
 # python-app-01
 
-A FastAPI task management REST API backed by PostgreSQL, deployed on AWS EC2 with RDS.
+A FastAPI task management REST API (todos domain) deployed on AWS EC2 behind an Application Load Balancer, backed by PostgreSQL on RDS.
 
-## Architecture
+## Stack
 
-```
-Internet User → EC2 t3.small (:8000) → RDS PostgreSQL t3.micro
-```
+| Layer | Technology |
+|-------|-----------|
+| API | FastAPI 0.115 + Uvicorn |
+| Database | PostgreSQL 17 (RDS t3.micro) |
+| ORM | SQLAlchemy 2 (async) + Alembic |
+| Server | EC2 t3.small (Ubuntu 22.04) |
+| Load Balancer | AWS ALB (internet-facing, HTTP :80) |
+| Region | us-east-1 |
+| CI/CD | GitHub Actions |
 
-See `.udap/architecture.d2` for the full diagram.
-
-## Endpoints
+## API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/health` | Health check |
-| GET | `/tasks` | List all tasks |
-| GET | `/tasks/{id}` | Get a task |
-| POST | `/tasks` | Create a task |
-| PUT | `/tasks/{id}` | Update a task |
-| DELETE | `/tasks/{id}` | Delete a task |
+| GET | `/todos` | List all items |
+| POST | `/todos` | Create an item |
+| GET | `/todos/{id}` | Get an item by ID |
+| PUT | `/todos/{id}` | Update an item |
+| DELETE | `/todos/{id}` | Delete an item |
 
-Interactive docs available at `http://<host>:8000/docs` after deployment.
+The ALB DNS name is printed in the verify stage log after each deploy. The Swagger UI is available at `/docs` on the ALB hostname.
+
+## Item Schema
+
+```json
+{
+  "id": 1,
+  "title": "Buy groceries",
+  "description": "Milk, eggs, bread",
+  "completed": false,
+  "created_at": "2025-01-01T00:00:00Z",
+  "updated_at": "2025-01-01T00:00:00Z"
+}
+```
 
 ## Local Development
 
-**Prerequisites:** Python 3.12, pip
-
 ```bash
-# Create and activate virtual environment
-python3.12 -m venv venv
+python -m venv venv
 source venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt
 
-# Install dependencies
-pip install -r requirements.txt
-
-# Run with SQLite (no database setup needed)
-DATABASE_URL=sqlite+aiosqlite:///./dev.db uvicorn app.main:app --reload
-
-# Run tests
+# Run tests (SQLite, no RDS required)
 pytest tests/ -v
+
+# Run the app locally
+DATABASE_URL=sqlite+aiosqlite:///./dev.db uvicorn app.main:app --reload
 ```
-
-## Configuration
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `DATABASE_URL` | SQLAlchemy async DB URL | Yes |
-
-On the server, `.env` is written by Ansible from CI secrets.
 
 ## Deployment
 
-Push to `main` — the pipeline runs automatically:
+Triggered via GitHub Actions on push to `main`.
 
-1. **lint** — flake8 on `app/`
-2. **test** — pytest with SQLite
-3. **provision** — Terraform: EC2 + RDS + security groups
-4. **configure** — Ansible: Python env, app code, migrations, systemd service
-5. **verify** — health check with retries
+Pipeline: lint -> test -> provision -> configure -> verify
 
-## CI Secrets
+- **provision**: Terraform creates the EC2 instance, ALB, and RDS database
+- **configure**: Ansible deploys the app, runs Alembic migrations, starts the systemd service
+- **verify**: Polls the ALB health endpoint until the app responds
 
-| Secret | Set by |
-|--------|--------|
-| `DB_PASSWORD` | You (via set_pipeline_secret before deploy) |
-| `PROJECT_NAME` | Platform |
-| `SSH_USER` / `SSH_PRIVATE_KEY` / `SSH_PUBLIC_KEY` | Platform |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Platform |
-| `TF_STATE_BUCKET` | Platform |
+## Network Layout
 
-## Operations
-
-```bash
-# SSH to the server
-ssh -i <key> ubuntu@<instance_ip>
-
-# View logs
-sudo journalctl -u python-app-01 -f
-
-# Restart service
-sudo systemctl restart python-app-01
-
-# Run migrations manually
-cd /opt/python-app-01
-source venv/bin/activate
-DATABASE_URL=... alembic upgrade head
+```
+Internet -> ALB :80 -> EC2 :8000 -> RDS :5432
 ```
 
-## Teardown
-
-Use the **Destroy** action in the UDAP platform to tear down all AWS resources.
+Security groups:
+- ALB: inbound :80 from the internet
+- EC2: inbound :22 from the internet, inbound :8000 from the ALB security group only
+- RDS: inbound :5432 from the EC2 security group only

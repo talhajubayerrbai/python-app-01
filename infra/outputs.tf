@@ -3,6 +3,11 @@ output "instance_ip" {
   value       = aws_eip.app.public_ip
 }
 
+output "alb_dns_name" {
+  description = "DNS name of the Application Load Balancer"
+  value       = aws_lb.app.dns_name
+}
+
 output "db_endpoint" {
   description = "RDS PostgreSQL endpoint"
   value       = aws_db_instance.postgres.endpoint

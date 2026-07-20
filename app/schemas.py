@@ -3,19 +3,19 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
 
-class TaskCreate(BaseModel):
+class TodoCreate(BaseModel):
     title: str
     description: Optional[str] = ""
     completed: bool = False
 
 
-class TaskUpdate(BaseModel):
+class TodoUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     completed: Optional[bool] = None
 
 
-class TaskResponse(BaseModel):
+class TodoResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
