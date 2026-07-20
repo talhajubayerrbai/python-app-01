@@ -1,4 +1,16 @@
 ---
+- name: Install software-properties-common
+  ansible.builtin.apt:
+    name: software-properties-common
+    state: present
+    update_cache: false
+
+- name: Add deadsnakes PPA for Python 3.12
+  ansible.builtin.apt_repository:
+    repo: ppa:deadsnakes/ppa
+    state: present
+    update_cache: true
+
 - name: Install system packages
   ansible.builtin.apt:
     name:
