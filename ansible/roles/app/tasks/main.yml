@@ -8,20 +8,13 @@
     mode: "0755"
 
 - name: Copy application code
-  ansible.builtin.synchronize:
+  ansible.builtin.copy:
     src: "{{ playbook_dir }}/../"
     dest: /opt/python-app-01/
-    rsync_opts:
-      - "--exclude=.git"
-      - "--exclude=.github"
-      - "--exclude=infra"
-      - "--exclude=ansible"
-      - "--exclude=__pycache__"
-      - "--exclude=*.pyc"
-      - "--exclude=.env"
-      - "--exclude=dev.db"
-      - "--exclude=test.db"
-    delete: true
+    owner: ubuntu
+    group: ubuntu
+    mode: "0755"
+    force: true
 
 - name: Create Python virtual environment
   ansible.builtin.command:
